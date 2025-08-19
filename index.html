@@ -26439,5 +26439,469 @@
       replaceDollarInDOM();
     });
   </script>
+
+  <script>
+    // Multiple approaches to prevent the ps-block-popup__container modal from showing
+
+    // Method 1: Hide existing modal immediately and prevent future displays
+    function hidePopupModal() {
+      const modal = document.querySelector(".ps-block-popup__container");
+      if (modal) {
+        modal.style.display = "none !important";
+        modal.style.visibility = "hidden";
+        modal.style.opacity = "0";
+        modal.classList.add("hidden");
+        modal.setAttribute("aria-hidden", "true");
+
+        // Remove from DOM completely if needed
+        // modal.remove();
+      }
+    }
+
+    // Method 2: Use CSS to permanently hide the modal
+    function addHidingStyles() {
+      const style = document.createElement("style");
+      style.id = "hide-popup-modal";
+      style.textContent = `
+    .ps-block-popup__container {
+      display: none !important;
+      visibility: hidden !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+      z-index: -9999 !important;
+    }
+    
+    .ps-block-popup__container * {
+      display: none !important;
+    }
+  `;
+      document.head.appendChild(style);
+    }
+
+    // Method 3: Observe DOM changes and hide modal when it appears
+    function observeAndBlockModal() {
+      const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+          mutation.addedNodes.forEach((node) => {
+            if (node.nodeType === Node.ELEMENT_NODE) {
+              // Check if the added node is the modal
+              if (
+                node.classList &&
+                node.classList.contains("ps-block-popup__container")
+              ) {
+                node.style.display = "none";
+                node.remove();
+              }
+
+              // Check if the added node contains the modal
+              const modal =
+                node.querySelector &&
+                node.querySelector(".ps-block-popup__container");
+              if (modal) {
+                modal.style.display = "none";
+                modal.remove();
+              }
+            }
+          });
+        });
+      });
+
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+      });
+    }
+
+    // Method 4: Override common modal trigger functions
+    function blockModalTriggers() {
+      // Block common modal opening methods
+      const originalShowModal = window.showModal;
+      if (typeof originalShowModal === "function") {
+        window.showModal = function (modalClass) {
+          if (modalClass && modalClass.includes("ps-block-popup")) {
+            console.log("Blocked ps-block-popup modal");
+            return false;
+          }
+          return originalShowModal.apply(this, arguments);
+        };
+      }
+
+      // Block jQuery modal triggers if jQuery is available
+      if (typeof $ !== "undefined") {
+        $(document).off("click", '[data-toggle="modal"]');
+        $(document).on("click", '[data-toggle="modal"]', function (e) {
+          const target = $(this).data("target") || $(this).attr("href");
+          if (target && target.includes("ps-block-popup")) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log("Blocked ps-block-popup modal trigger");
+            return false;
+          }
+        });
+      }
+    }
+
+    // Method 5: Block specific event listeners that might trigger the modal
+    function blockEventListeners() {
+      // Override addEventListener to block modal-related events
+      const originalAddEventListener = Element.prototype.addEventListener;
+
+      Element.prototype.addEventListener = function (type, listener, options) {
+        // Block events on modal triggers
+        if (
+          this.classList &&
+          this.classList.contains("ps-block-popup__trigger")
+        ) {
+          console.log("Blocked event listener on modal trigger");
+          return;
+        }
+
+        // Block events that might open the modal
+        if (typeof listener === "function") {
+          const listenerString = listener.toString();
+          if (listenerString.includes("ps-block-popup")) {
+            console.log("Blocked modal-related event listener");
+            return;
+          }
+        }
+
+        return originalAddEventListener.call(this, type, listener, options);
+      };
+    }
+
+    // Method 6: Block modal based on timing (exit intent, scroll, etc.)
+    function blockTimingBasedModal() {
+      // Block exit intent modals
+      document.addEventListener(
+        "mouseleave",
+        function (e) {
+          if (e.clientY < 0) {
+            // Cursor left through top of viewport (exit intent)
+            e.preventDefault();
+            e.stopImmediatePropagation();
+          }
+        },
+        true
+      );
+
+      // Block scroll-based modals
+      let scrollBlocked = false;
+      window.addEventListener("scroll", function (e) {
+        if (!scrollBlocked) {
+          const scrollPercent =
+            (window.scrollY /
+              (document.body.scrollHeight - window.innerHeight)) *
+            100;
+          if (scrollPercent > 50) {
+            // Block modals after 50% scroll
+            scrollBlocked = true;
+            // Remove any scroll-triggered modal
+            hidePopupModal();
+          }
+        }
+      });
+
+      // Block time-based modals
+      setTimeout(() => {
+        hidePopupModal();
+      }, 1000); // Block any modal that appears after 1 second
+    }
+
+    // Method 7: Block modal with localStorage/sessionStorage check
+    function blockModalWithStorage() {
+      // Set a flag to prevent modal
+      localStorage.setItem("ps-block-popup-disabled", "true");
+      sessionStorage.setItem("ps-block-popup-disabled", "true");
+
+      // Override any checks for these flags
+      const originalGetItem = Storage.prototype.getItem;
+      Storage.prototype.getItem = function (key) {
+        if (key.includes("ps-block-popup") && !key.includes("disabled")) {
+          return null; // Return null for modal-related storage checks
+        }
+        return originalGetItem.call(this, key);
+      };
+    }
+
+    // Main initialization function
+    function initializeModalBlocker() {
+      // Apply all methods for maximum effectiveness
+      addHidingStyles();
+      hidePopupModal();
+      observeAndBlockModal();
+      blockModalTriggers();
+      blockEventListeners();
+      blockTimingBasedModal();
+      blockModalWithStorage();
+
+      // Continue checking and hiding modal every 500ms
+      setInterval(hidePopupModal, 500);
+
+      console.log("ps-block-popup__container modal blocker initialized");
+    }
+
+    // Initialize immediately and on DOM ready
+    initializeModalBlocker();
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", initializeModalBlocker);
+    } else {
+      initializeModalBlocker();
+    }
+
+    // Also run after page load to catch any delayed modals
+    window.addEventListener("load", () => {
+      setTimeout(initializeModalBlocker, 1000);
+    });
+  </script>
+
+  <script>
+    // Configuration for redirect URLs
+    const redirectConfig = {
+      // Default redirect URL
+      defaultUrl: "/checkout/custom-checkout",
+
+      // You can add product-specific URLs based on aria-label or other attributes
+      productUrls: {
+        37500: "/checkout/product-37500",
+        default: "/checkout/custom-checkout",
+      },
+    };
+
+    // Function to get the redirect URL based on button attributes
+    function getRedirectUrl(button) {
+      // Extract product ID from aria-label if available
+      const ariaLabel = button.getAttribute("aria-label");
+      if (ariaLabel) {
+        const productIdMatch = ariaLabel.match(/(\d+)/);
+        if (productIdMatch) {
+          const productId = productIdMatch[1];
+          return (
+            redirectConfig.productUrls[productId] || redirectConfig.defaultUrl
+          );
+        }
+      }
+
+      // You can add more logic here to determine URL based on:
+      // - Product price
+      // - Product attributes
+      // - Page URL
+      // - Other data attributes
+
+      return redirectConfig.defaultUrl;
+    }
+
+    // Function to show loading state
+    function showLoadingState(button) {
+      const addText = button.querySelector(".add-text");
+      const spinner = button.querySelector(".spinner");
+
+      if (addText) {
+        addText.style.opacity = "0.7";
+      }
+
+      if (spinner) {
+        spinner.style.display = "inline-block";
+        // Add spinner animation if not already styled
+        spinner.style.cssText += `
+      width: 16px;
+      height: 16px;
+      border: 2px solid #f3f3f3;
+      border-top: 2px solid #333;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-left: 8px;
+    `;
+      }
+
+      button.disabled = true;
+      button.style.cursor = "not-allowed";
+    }
+
+    // Function to handle the button click
+    function handleAddToCartClick(event) {
+      // Prevent all default behaviors
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+
+      const button = event.currentTarget;
+
+      // Show loading state
+      showLoadingState(button);
+
+      // Get the redirect URL
+      const redirectUrl = getRedirectUrl(button);
+
+      console.log("Redirecting to:", redirectUrl);
+
+      // Add a brief delay for better UX (optional)
+      setTimeout(() => {
+        // Redirect to the custom URL
+        window.location.href = redirectUrl;
+      }, 500); // 500ms delay
+
+      return false;
+    }
+
+    // Function to remove existing event listeners
+    function removeExistingListeners(button) {
+      // Clone the button to remove all event listeners
+      const newButton = button.cloneNode(true);
+      button.parentNode.replaceChild(newButton, button);
+      return newButton;
+    }
+
+    // Function to initialize the redirect handler
+    function initializeAddToCartRedirect() {
+      // Find the specific add to cart button
+      const addToCartButtons = document.querySelectorAll(
+        ".hoox-js-atc-button, .addtocartbtn, .product-add-cart"
+      );
+
+      addToCartButtons.forEach((button) => {
+        // Remove existing event listeners by cloning the element
+        const cleanButton = removeExistingListeners(button);
+
+        // Add our custom click handler
+        cleanButton.addEventListener("click", handleAddToCartClick, true);
+
+        // Also handle form submission if button is inside a form
+        const form = cleanButton.closest("form");
+        if (form) {
+          form.addEventListener(
+            "submit",
+            (event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              handleAddToCartClick({
+                currentTarget: cleanButton,
+                preventDefault: () => {},
+                stopPropagation: () => {},
+                stopImmediatePropagation: () => {},
+              });
+              return false;
+            },
+            true
+          );
+        }
+
+        console.log("Add to cart redirect handler attached to button");
+      });
+    }
+
+    // Function to override any AJAX add to cart functionality
+    function blockAjaxAddToCart() {
+      // Block fetch requests to cart endpoints
+      const originalFetch = window.fetch;
+      window.fetch = function (...args) {
+        const url = args[0];
+        if (
+          typeof url === "string" &&
+          (url.includes("/cart/add") || url.includes("add-to-cart"))
+        ) {
+          console.log("Blocked AJAX add to cart request");
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve({ redirected: true }),
+          });
+        }
+        return originalFetch.apply(this, args);
+      };
+
+      // Block XMLHttpRequest to cart endpoints
+      const originalOpen = XMLHttpRequest.prototype.open;
+      XMLHttpRequest.prototype.open = function (method, url, ...args) {
+        if (
+          typeof url === "string" &&
+          (url.includes("/cart/add") || url.includes("add-to-cart"))
+        ) {
+          console.log("Blocked XMLHttpRequest add to cart");
+          return;
+        }
+        return originalOpen.apply(this, [method, url, ...args]);
+      };
+
+      // Block jQuery AJAX if available
+      if (typeof $ !== "undefined" && $.ajaxSetup) {
+        $(document).ajaxSend(function (event, xhr, settings) {
+          if (
+            settings.url &&
+            (settings.url.includes("/cart/add") ||
+              settings.url.includes("add-to-cart"))
+          ) {
+            console.log("Blocked jQuery AJAX add to cart");
+            xhr.abort();
+          }
+        });
+      }
+    }
+
+    // Add CSS for spinner animation
+    function addSpinnerStyles() {
+      if (!document.querySelector("#add-to-cart-redirect-styles")) {
+        const style = document.createElement("style");
+        style.id = "add-to-cart-redirect-styles";
+        style.textContent = `
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      
+      .hoox-js-atc-button:disabled {
+        opacity: 0.8;
+      }
+      
+      .spinner {
+        display: none;
+      }
+    `;
+        document.head.appendChild(style);
+      }
+    }
+
+    // Main initialization function
+    function initializeRedirectSystem() {
+      addSpinnerStyles();
+      blockAjaxAddToCart();
+      initializeAddToCartRedirect();
+
+      // Re-initialize if new buttons are added dynamically
+      const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+          mutation.addedNodes.forEach((node) => {
+            if (node.nodeType === Node.ELEMENT_NODE) {
+              const newButtons =
+                node.querySelectorAll &&
+                node.querySelectorAll(
+                  ".hoox-js-atc-button, .addtocartbtn, .product-add-cart"
+                );
+              if (newButtons && newButtons.length > 0) {
+                setTimeout(initializeAddToCartRedirect, 100);
+              }
+            }
+          });
+        });
+      });
+
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+      });
+
+      console.log("Add to cart redirect system initialized");
+    }
+
+    // Initialize when DOM is ready
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", initializeRedirectSystem);
+    } else {
+      initializeRedirectSystem();
+    }
+
+    // Also initialize after a short delay to catch any dynamically loaded buttons
+    setTimeout(initializeRedirectSystem, 1000);
+  </script>
 </html>
 <!-- Begin Shopify-Afterpay JavaScript Snippet (v1.1.5) --><!-- Afterpay disabled: EUR != USD --><!-- End Shopify-Afterpay JavaScript Snippet (v1.1.5) -->
